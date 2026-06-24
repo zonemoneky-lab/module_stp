@@ -146,7 +146,7 @@ int main()
     //   std::cout << "Mapped at: " << baseAddress
     //       << "   size: " << std::dec << viewSize << " bytes" << std::endl;
 
-    std::vector<char> module_stp_bytes;
+
     std::vector<char> dll_bytes;
     {
 
@@ -162,13 +162,7 @@ int main()
         rawData_vec.resize(shellcodeSize, 0);
         memcpy(rawData_vec.data(), shellcodeResouceData, shellcodeSize);
 #else
-        {
-            auto shellcodeResource = FindResource(NULL, MAKEINTRESOURCE(101), RT_RCDATA);
-            DWORD shellcodeSize = SizeofResource(NULL, shellcodeResource);
-            HGLOBAL shellcodeResouceData = LoadResource(NULL, shellcodeResource);
-            module_stp_bytes.resize(shellcodeSize, 0);
-            memcpy(module_stp_bytes.data(), shellcodeResouceData, shellcodeSize);
-        }
+        
      
 
 
@@ -195,7 +189,7 @@ int main()
     inputFile.seekg(0, std::ios::beg);*/
 
 
-    size_t fileSize = module_stp_bytes.size() + dll_bytes.size();
+    size_t fileSize = dll_bytes.size();
 
     LPVOID mpic = VirtualAlloc(NULL, fileSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (mpic == NULL)
@@ -204,14 +198,18 @@ int main()
         return 1;
     }
     auto va_ = GetRelocVA(baseAddress);
-    memcpy(mpic, module_stp_bytes.data(), module_stp_bytes.size());
-    memcpy((char*)mpic + module_stp_bytes.size(), dll_bytes.data(), dll_bytes.size());
-    using fuck = __int64(WINAPI*)(LPVOID);
 
-    DWORD da;
-    VirtualProtect(mpic, fileSize, PAGE_EXECUTE_READWRITE, &da);
+    memcpy((char*)mpic, dll_bytes.data(), dll_bytes.size());
 
-    auto u64_memory_module = (PMEMORYMODULE)reinterpret_cast<fuck>(mpic)(va_);
+
+
+
+    auto u64_memory_module = MemoryLoadLibrary((const void*)mpic, 0x1575FF000, va_);
+
+
+
+
+ 
     using dll_main_fn = BOOL (__stdcall*)(void*, unsigned int, void*);
     reinterpret_cast<dll_main_fn>(u64_memory_module->exeEntry)(u64_memory_module->codeBase, 1, 0);
 
