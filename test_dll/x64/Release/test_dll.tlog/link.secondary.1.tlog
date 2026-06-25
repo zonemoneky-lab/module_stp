@@ -1,3 +1,5 @@
-^C:\SRC\MODULE_STOP_LOADER\TEST_DLL\X64\RELEASE\TEST_DLL.OBJ
+^C:\SRC\MODULE_STOP_LOADER\TEST_DLL\X64\RELEASE\EVENTLOOP.OBJ|C:\SRC\MODULE_STOP_LOADER\TEST_DLL\X64\RELEASE\TEST_DLL.OBJ
+C:\src\module_stop_loader\x64\Release\test_dll.lib
+C:\src\module_stop_loader\x64\Release\test_dll.EXP
 C:\src\module_stop_loader\test_dll\x64\Release\test_dll.IPDB
 C:\src\module_stop_loader\test_dll\x64\Release\test_dll.iobj

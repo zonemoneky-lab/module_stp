@@ -3,25 +3,64 @@
 
 #include <iostream>
 #include <windows.h>
-int main()
+#include <thread>
+#include "EventLoop.hpp"
+extern "C" __declspec(dllexport) void __stdcall entry()
 {
-    __try
+     []()
     {
-        *(int*)(0) = 1;
-    }
-    __except (1)
-    {
-        MessageBoxA(0, "seh ok", "ok", MB_OK);
+        __try
+        {
+            *(int*)(0) = 1;
+        }
+        __except (1)
+        {
+            MessageBoxA(0, "seh ok", "ok", MB_OK);
+        }
+
+        }();
+    
+
+    EventLoop loop;
+
+    int count = 0;
+    EventLoop::TimerId timer = 0;
+    loop.Post([] {
+        std::cout << "Execute immediately\n";
+        });
+
+    loop.PostDelay([] {
+        std::cout << "Execute after 1 second\n";
+        }, std::chrono::milliseconds(1000));
+
+    loop.PostDelay([&loop] {
+        std::cout << "stop\n";
+  
+        }, std::chrono::milliseconds(2000));
+    timer = loop.PostInterval([&] {
+        std::cout << "interval tick: " << count << "\n";
+
+        ++count;
+        if (count >= 5) {
+            loop.Cancel(timer);
+        
+        }
+        }, std::chrono::milliseconds(500));
+
+    while (true) {
+        loop.Poll();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
 
-    return 0;
+    return;
 }
 
 int __stdcall DllMain(void* hinstance, unsigned int dwreason, void* parm)
 {
     if (dwreason == 1)
     {
-        main();
+       
     }
     return 1;
 }

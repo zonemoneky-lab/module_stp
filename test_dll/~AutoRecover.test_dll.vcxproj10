@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{143ab7a1-0c10-402f-a1d5-39db320b54ca}</ProjectGuid>
-    <RootNamespace>modulestoploader</RootNamespace>
+    <ProjectGuid>{679265d2-203c-4493-b07a-e22daa20c97d}</ProjectGuid>
+    <RootNamespace>testdll</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -54,7 +54,6 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -117,8 +116,6 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp23</LanguageStandard>
-      <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -126,25 +123,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="dll_main_caller.cpp" />
-    <ClCompile Include="MemoryModulePP.cpp" />
-    <ClCompile Include="module_stop_loader.cpp" />
-    <ClCompile Include="spoof_with_return\spoof_stack_utils.cpp" />
+    <ClCompile Include="EventLoop.cpp" />
+    <ClCompile Include="test_dll.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="resource.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="memorymodulepp.h" />
-    <ClInclude Include="spoof_with_return\Structs.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <MASM Include="spoof_with_return\test.asm">
-      <FileType>Document</FileType>
-    </MASM>
+    <ClInclude Include="EventLoop.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>

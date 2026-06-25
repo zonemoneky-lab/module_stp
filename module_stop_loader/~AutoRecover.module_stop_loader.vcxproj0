@@ -126,10 +126,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="dll_main_caller.cpp" />
+    <ClCompile Include="MemoryModulePP.cpp" />
     <ClCompile Include="module_stop_loader.cpp" />
+    <ClCompile Include="spoof_stack_utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="memorymodulepp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

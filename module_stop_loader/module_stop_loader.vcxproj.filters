@@ -24,6 +24,9 @@
     <ClCompile Include="MemoryModulePP.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="spoof_with_return\spoof_stack_utils.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc">
@@ -34,5 +37,13 @@
     <ClInclude Include="memorymodulepp.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="spoof_with_return\Structs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="spoof_with_return\test.asm">
+      <Filter>源文件</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

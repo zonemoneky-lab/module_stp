@@ -261,14 +261,14 @@ int main()
 
     // VirtualFree(mpic, 0, MEM_RELEASE);
 
-
+    getchar();
 
 
     // 5. 清理 
     // （NtUnmapViewOfSection 默认在进程退出时自动清理）
     ///CloseHandle(hSection);
     CloseHandle(hFile);
-    BOOL a = DeleteFileA(R"(C:\src\DreamWalkers\memoryModule\qwindows.dll)");
+
     return 0;
 
 }

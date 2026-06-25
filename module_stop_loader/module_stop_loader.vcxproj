@@ -54,6 +54,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -128,14 +129,22 @@
     <ClCompile Include="dll_main_caller.cpp" />
     <ClCompile Include="MemoryModulePP.cpp" />
     <ClCompile Include="module_stop_loader.cpp" />
+    <ClCompile Include="spoof_with_return\spoof_stack_utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="resource.rc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="memorymodulepp.h" />
+    <ClInclude Include="spoof_with_return\Structs.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="spoof_with_return\test.asm">
+      <FileType>Document</FileType>
+    </MASM>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>
