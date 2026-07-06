@@ -1,8 +1,14 @@
-﻿#include <chrono>
+#include <chrono>
 #include <cstdint>
+#include <exception>
 #include <functional>
+#include <future>
+#include <memory>
 #include <queue>
+#include <stdexcept>
+#include <type_traits>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 class EventLoop {
@@ -19,6 +25,18 @@ public:
         return PostAt(Clock::now() + delay, std::move(task), false, {});
     }
 
+    template <typename F>
+    auto PostFuture(F&& func)
+        -> std::future<std::invoke_result_t<std::decay_t<F>&>> {
+        return PostFutureAt(Clock::now(), std::forward<F>(func));
+    }
+
+    template <typename F>
+    auto PostFutureDelay(F&& func, std::chrono::milliseconds delay)
+        -> std::future<std::invoke_result_t<std::decay_t<F>&>> {
+        return PostFutureAt(Clock::now() + delay, std::forward<F>(func));
+    }
+
     TimerId PostInterval(Task task, std::chrono::milliseconds interval) {
         if (!task || interval.count() <= 0 || stopped_) {
             return 0;
@@ -33,7 +51,7 @@ public:
             true,
             interval,
             std::move(task)
-            });
+        });
 
         active_intervals_.insert(id);
         return id;
@@ -76,6 +94,12 @@ public:
 
     void Stop() {
         stopped_ = true;
+
+        while (!tasks_.empty()) {
+            tasks_.pop();
+        }
+
+        active_intervals_.clear();
     }
 
     bool Empty() const {
@@ -119,9 +143,54 @@ private:
             repeat,
             interval,
             std::move(task)
-            });
+        });
 
         return true;
+    }
+
+    template <typename F>
+    auto PostFutureAt(Clock::time_point time, F&& func)
+        -> std::future<std::invoke_result_t<std::decay_t<F>&>> {
+        using Fn = std::decay_t<F>;
+        using R = std::invoke_result_t<Fn&>;
+
+        auto promise = std::make_shared<std::promise<R>>();
+        auto future = promise->get_future();
+
+        if (stopped_) {
+            promise->set_exception(std::make_exception_ptr(
+                std::runtime_error("EventLoop is stopped")
+            ));
+            return future;
+        }
+
+        Fn fn(std::forward<F>(func));
+
+        bool ok = PostAt(
+            time,
+            [promise, fn = std::move(fn)]() mutable {
+                try {
+                    if constexpr (std::is_void_v<R>) {
+                        fn();
+                        promise->set_value();
+                    } else {
+                        promise->set_value(fn());
+                    }
+                } catch (...) {
+                    promise->set_exception(std::current_exception());
+                }
+            },
+            false,
+            {}
+        );
+
+        if (!ok) {
+            promise->set_exception(std::make_exception_ptr(
+                std::runtime_error("failed to post future task")
+            ));
+        }
+
+        return future;
     }
 
 private:
