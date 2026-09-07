@@ -1,0 +1,81 @@
+#include <chrono>
+#include <cstdint>
+#include <unordered_map>
+#include <optional>
+
+class VisibilityTracker
+{
+public:
+    using ObjectId = std::uint64_t;
+    using Clock = std::chrono::steady_clock;
+
+    struct State
+    {
+        bool visible = false;
+
+        // 当前状态开始的时间
+        Clock::time_point since;
+    };
+
+public:
+    void Update(ObjectId id, bool visible)
+    {
+        const auto now = Clock::now();
+
+        auto it = states_.find(id);
+
+        // 第一次出现
+        if (it == states_.end())
+        {
+            states_.emplace(id, State{
+                .visible = visible,
+                .since = now
+            });
+            return;
+        }
+
+        // 状态发生变化
+        if (it->second.visible != visible)
+        {
+            it->second.visible = visible;
+            it->second.since = now;
+        }
+    }
+
+    std::optional<State> GetState(ObjectId id) const
+    {
+        auto it = states_.find(id);
+
+        if (it == states_.end())
+            return std::nullopt;
+
+        return it->second;
+    }
+
+    std::chrono::milliseconds GetDuration(ObjectId id) const
+    {
+        auto it = states_.find(id);
+
+        if (it == states_.end())
+            return std::chrono::milliseconds{0};
+
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - it->second.since
+        );
+    }
+
+    bool IsVisible(ObjectId id) const
+    {
+        auto it = states_.find(id);
+
+        return it != states_.end() && it->second.visible;
+    }
+
+    void Remove(ObjectId id)
+    {
+        states_.erase(id);
+    }
+
+private:
+    std::unordered_map<ObjectId, State> states_;
+};
